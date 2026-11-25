@@ -29,11 +29,29 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Aceitar as licenças do Android SDK
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - name: Licenças e plataforma do Android SDK
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-34" "build-tools;34.0.0" || true
 
       - name: Compilar o APK (debug)
-        run: gradle assembleDebug --stacktrace
+        run: |
+          set -o pipefail
+          gradle assembleDebug --console=plain --stacktrace 2>&1 | tee build.log
+
+      - name: Resumo do erro
+        if: failure()
+        run: |
+          echo "=========== RESUMO DO ERRO (copie daqui) ==========="
+          grep -n -B2 -A30 "What went wrong" build.log | head -90 || tail -90 build.log
+
+      - name: Guardar o log completo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
 
       - name: Guardar o APK
         uses: actions/upload-artifact@v4
